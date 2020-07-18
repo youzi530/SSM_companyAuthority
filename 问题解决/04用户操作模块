@@ -1,0 +1,76 @@
+一、用户管理查询：
+    1、点击用户管理，发送请求到controller
+    2、在controller中，调用方法，去访问到dao
+    3、在dao中查询出来，封装成UserInfo对象，再返回到service中，再返回到controller，再根据页面跳转user-list.jsp展示
+
+
+二用户新建：
+    1、点击新建，跳转到user-add.jsp页面
+    2、在添加页面中有表单，填完提交，发送请求，到controller中
+        <form action="${pageContext.request.contextPath}/user/save.do">
+    3、在controller中调用sevice方法
+        @RequestMapping("/save.do")
+        public String save(UserInfo userInfo){
+           userService.save(userInfo);
+           return "redirect:findAll.do";
+        }
+    4、service里面则去调用dao的方法
+    5、dao里面执行sql，添加到数据库中，（密码需要加密）
+        方式一：配置文件方式：
+            a、在spring-security.xml中进行配置：
+                <!-- 配置加密类 -->
+                <bean id="passwordEncoder" class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder"/>
+            b、在serviceImpl里面写代码：
+                @Autowired
+                private BCryptPasswordEncoder bCryptPasswordEncoder;
+
+                @Override
+                public void save(UserInfo userInfo) {
+                    //对密码进行加密：
+                    String password = bCryptPasswordEncoder.encode(userInfo.getPassword());
+                    userInfo.setPassword(password);
+                    userDao.save(userInfo);
+                }
+
+        方式二：单独写一个工具类的方式：
+            a、书写一个工具类，直接调用就可以了
+    6、添加完成的时候，那我需要重新查询一下：
+        return "redirect:findAll.do";
+
+三、当你密码加密后，我怎么登陆？
+    1、在serviceImpl里面去掉：“{noop}”
+    2、在spring-security.xml里面加上一句配置：
+        <!-- 配置加密的方式-->
+        <security:password-encoder ref="passwordEncoder"/>
+    3、但是之前明码账户就不能登陆了
+
+三、用户详情展示：
+    1、在user-list.jsp页面上点击详情，发送请求，携带当前这条数据的id
+    2、在controller里面调用service完成根据id查询用户相关信息
+    3、在service里面调用dao方法
+    4、在dao里面，不单单只查出用户表的信息，还要查询出角色信息，以及角色锁关联的权限信息，涉及了多表查询
+        用户表（id）和角色表（id）是多对多，角色表（id）和权限表(id)也是多对多
+    5、如何在user-show.jsp展示各种数据呢？
+
+四、角色查询：
+    1、点击角色管理，发送请求，到controller
+    2、调用service，到dao的方法：
+    3、在dao中执行方法：查询到所有角色，然后返回封装到List<role>集合中
+    4、先返回到service，再返回到controller中，跳转页面，展示数据（role-list.jsp）
+
+五、角色添加：
+    1、点击添加，跳转到添加页面，录入信息，封装在表单里面，然后提交发送请求
+    2、到controller中，调service和dao的方法
+    3、dao执行插入语句，添加成功，然后返回到controller的时候，再次查询一次
+
+六、资源权限管理
+    1、类似于角色管理的代码
+
+
+
+
+
+
+
+
+

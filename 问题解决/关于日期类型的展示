@@ -1,0 +1,81 @@
+一、是实体类中存储了时间类型和字符串类型的数据，我们怎么展示到前端去：
+    1、我书写了一个工具类，两种功能，字符串转成日期，日期转成字符串
+        public class DateFormatUtils {
+
+            //日期转换为字符串
+            public static String dateToString(Date date , String patt){
+                SimpleDateFormat sdf = new SimpleDateFormat(patt);
+                String format = sdf.format(date);
+                return  format;
+            }
+
+            //字符串转换为日期
+            public static Date stringToDate(String str,String patt) throws ParseException {
+                SimpleDateFormat sdf = new SimpleDateFormat(patt);
+                Date parse = sdf.parse(str);
+                return parse;
+         }}
+    2、并且在domain里面的Product实体类中：
+        a、我加了一个属性，字符串类型的时间，这样我数据库存的是时间类型的时间，而展示的是转换之后的字符串时间
+            private Date departureTime; // 出发时间
+            private String departureTimeStr;  //方便展示数据--出发时间
+
+        b、在get方法里面做处理，代码如下：
+            public String getDepartureTimeStr() {
+                if(departureTime != null){
+                    departureTimeStr = DateFormatUtils.dateToString(departureTime,"yyyy-MM-dd HH:mm:ss");
+                }
+                return departureTimeStr;
+            }
+
+二、我的状态在数据库中时int，但是我前端要展示“关闭”、“开启”：
+    1、在domain里面的Product实体类中
+        a、我加了一个属性，字符串类型的状态描述，这样我数据库存的是int类型，但是我前端展示的字符串
+            private String productDesc; // 产品描述
+            private Integer productStatus; // 状态 0 关闭 1 开启
+        b、在get方法里面做处理，代码如下：
+            public String getProductStatusStr() {
+                if(productStatus == 0){
+                    productStatusStr = "关闭";
+                }
+                if(productStatus == 1){
+                    productStatusStr = "开启";
+                }
+                return productStatusStr;
+            }
+
+三、当我前端提交数据的时候，提交过来的是字符串数据，但是我数据库里面存储的是Date类型，我该怎么办？
+    spring mvc绑定参数之类型转换有三种方式
+        1、方法一：实体类中加日期格式化注解：
+            @DateTimeFormat(pattern="yyyy-MM-dd HH:mm")
+            private Date creationTime;
+            解释：就是当我们传过来的数据时，就是在controller里面把数据封装成一个对象，但是传过来的是字符串数据，而实体类中是日期类型，所以就封装失败了
+                 那我们就需要在实体类中日期类型数据上加上注解： @DateTimeFormat(pattern="yyyy-MM-dd HH:mm")，它就会转换成日期类型，然后就可以封装到对象中
+        2、方法二：属性编辑器
+            spring3.1之前
+            在Controller类中通过@InitBinder完成
+            /**
+             * 在controller层中加入一段数据绑定代码
+             * @param webDataBinder
+             */
+            @InitBinder
+            public void initBinder(WebDataBinder webDataBinder) throws Exception{
+                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm");
+                simpleDateFormat.setLenient(false);
+                webDataBinder.registerCustomEditor(Date.class , new CustomDateEditor(simpleDateFormat , true));
+            }
+            备注：自定义类型转换器必须实现PropertyEditor接口或者继承PropertyEditorSupport类
+            写一个类 extends propertyEditorSupport（implements PropertyEditor）{
+                 public void setAsText(String text){
+                     SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy -MM-dd hh:mm");
+                    Date date = simpleDateFormat.parse(text);
+                    this.setValue(date);
+                 }
+                 public String getAsTest(){
+                  Date date = (Date)this.getValue();
+                  return this.dateFormat.format(date);
+            }}
+        3、类型转换器Converter
+            上面第一种方法：书写了一个工具类，两种功能，字符串转成日期，日期转成字符串
+
+

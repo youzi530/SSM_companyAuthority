@@ -1,0 +1,150 @@
+一、用户关联角色：
+    1、先查询这个用户没有的角色信息
+    2、关联用户和角色信息，主要就是向user_role表中插入数据
+
+    给用户添加角色：
+        1、给当前的用户，点击添加角色，带有这条记录的userId发送请求，到controller中
+        2、在controller中：调用service方法
+            ·根据userId查询用户
+            ·根据userId查询用户可以添加得角色
+                @RequestMapping("/findUserByIdAndAllRole.do")
+                public ModelAndView findUserByIdAndAllRole(@RequestParam(name = "id",required = true) String userId){
+                    ModelAndView mv = new ModelAndView();
+                    //1、根据userId查询用户
+                    UserInfo userInfo = userService.findById(userId);
+                    //2、根据userId查询用户可以添加得角色
+                    List<Role> otherRoles = userService.findOtherRoles(userId);
+
+                    mv.addObject("user",userInfo);
+                    mv.addObject("roleList",otherRoles);
+                    mv.setViewName("user-role-add");
+                    return mv;
+                }
+        3、service调用dao里面的方法
+        4、在dao中：
+            ·根据userId查询用户：
+            ·根据userId查询用户可以添加得角色：select * from role where id not in （select roleId from users_role where userId = xxx）
+                @Select("select * from role where id not in (select roleId from users_role where userId=#{userId})")
+                List<Role> findOtherRoles(String userId);
+        5、将上面两个查询到数据，返回到controller中，跳转到user-role-add.jsp页面：
+             <form action="${pageContext.request.contextPath}/user/addRoleToUser.do" method="post">
+        6、在user-role-add.jsp页面中，显示可添加的角色信息，再次提交添加的信息，发送请求，再次到controller中去
+           带有userId和roleId[]，可能有多种角色信息，然后插入到users_role这张表中
+
+
+二、角色关联权限
+    1、先查询这个角色没有的权限信息
+    2、关联角色和权限信息，就是向role_permission表中插入数据
+
+
+三、权限控制：
+    1、方法级别的权限控制:
+        a、先开启，默认情况下是关闭的。Spring Security在方法的权限控制上 支持三种类型的注解，JSR-250注解、@Secured注解和支持表达式的注解
+            <security:global-method-security jsr250-annotations="enabled"/>
+            <security:global-method-security secured-annotations="enabled"/>
+            <security:global-method-security pre-post-annotations="disabled"/>
+        b、方式：
+            ·@RolesAllowed表示访问对应方法时所应该具有的角色：@RolesAllowed({"USER", "ADMIN"})
+            ·@Secured注解标注的方法进行权限控制的支持，其值默认为disabled：  @Secured("IS_AUTHENTICATED_ANONYMOUSLY")
+            ·对于表达式操作，他可以使用spel表达式
+    2、页面级别的权限控制：
+        a、在页面上获取当前用户<security:authentication property="">
+        b、在页面上控制信息展示<security:authorize accesss="">
+
+四、AOP日志的处理：
+    1、发射
+    2、springAOP
+
+
+五、方法级别权限控制-基本介绍与JSR250注解使用：
+    1、需要再spring-security.xml中开启注解:
+        <security:global-method-security jsr250-annotations="enabled"></security:global-method-security>
+    2、在方法上加注解：@RolesAllowed表示访问对应方法时所应该具有的角色
+        @RequestMapping("/save.do")
+        @RolesAllowed("ADMIN")
+        public String save(Product product){
+            productService.save(product);
+            return "redirect:findAll.do";
+        }
+        表示：要想使用该方法，只有admin这种角色才可以访问
+    3、有上面两个还不可以，还要在pom.xml导入坐标
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>jsr250-api</artifactId>
+            <version>1.0</version>
+        </dependency>
+        附加：在web.xml里面配置403错误跳转页面
+    4、比如timi（123）账户就没权限访问产品管理
+
+
+六、方法级权限控制-@Secured注解使用：
+    1、需要开启使用注解:
+        <security:global-method-security secured-annotations="enabled"></security:global-method-security>
+    2、在指定的方法上使用:
+        //查询全部的订单，分页！！！！
+        @RequestMapping("/findAll.do")
+        @Secured("ROLE_ADMIN")
+        public ModelAndView findAll(@RequestParam(name = "page",required = true,defaultValue = "1")int page,
+        注意：参数要加"ROLE_ADMIN"，不能省略前缀
+    3、无需导入依赖：
+    4、比如timi（123）账户就没权限访问订单管理
+
+
+七、支持表达式的注解：
+    1、开启注解：
+        <security:global-method-security pre-post-annotations="enabled"></security:global-method-security>
+    2、使用spel表达式，在userController中加注解：
+        @RequestMapping("/findAll.do")
+        @PreAuthorize("hasRole('ROLE_ADMIN')")
+        public ModelAndView findAll(){
+            ModelAndView mv = new ModelAndView();
+            List<UserInfo> userList = userService.findAll();
+            mv.addObject("userList",userList);
+            mv.setViewName("user-list");
+            return mv;
+        }
+
+        @RequestMapping("/save.do")
+        @PreAuthorize("authentication.principal.username =='tom'")
+        public String save(UserInfo userInfo){
+           userService.save(userInfo);
+           return "redirect:findAll.do";
+        }
+    3、解释：
+         @PreAuthorize("hasRole('ROLE_ADMIN')")：只有角色为admin才可以有权限查询用户
+         @PreAuthorize("authentication.principal.username =='tom'")：只有tom用户才可以添加用户
+    @PreAuthorize 在方法调用之前,基于表达式的计算结果来限制对方法的访问
+    @PostAuthorize 允许方法调用,但是如果表达式计算结果为false,将抛出一个安全性异常
+
+
+八、页面端标签进行权限控制：
+    1、在pom中带入依赖：
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-taglibs</artifactId>
+            <version>version</version>
+        </dependency>
+    2、在jsp页面中导入：
+        <%@taglib uri="http://www.springframework.org/security/tags" prefix="security"%>
+    3、使用springSecurity框架提供的标签：
+        · authentication：可以获取当前正在操作的用户信息
+                <security:authentication property="principal.username"></security:authentication>
+                这里就会同步显示你的用户名
+        · authorize：用于控制页面上某些标签是否可以显示
+            在aside页面中：只有管理员身份的用户才可以看到用户管理
+                <li id="system-setting">
+                    <security:authorize access="hasRole('ADMIN')">
+                        <a href="${pageContext.request.contextPath}/user/findAll.do"> <i
+                                class="fa fa-circle-o"></i> 用户管理
+                        </a>
+                    </security:authorize>
+                </li>
+                <li id="system-setting">
+                    <a href="${pageContext.request.contextPath}/role/findAll.do"> <i
+                        class="fa fa-circle-o"></i> 角色管理
+                    </a>
+                </li>
+
+            注意在spring-security.xml中需要进行配置一个bean：
+                <bean id="webSecurityExpressionHandler" class="org.springframework.security.web.access.expression.DefaultWebSecurityExpressionHandler"></bean>
+        · accesscontrollist：略

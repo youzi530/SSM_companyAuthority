@@ -1,0 +1,54 @@
+一、因为涉及了添加操作，注意加上事务管理：
+    1、在applicationContext.xml中进行配置：
+
+        <!-- 配置Spring的声明式事务管理 -->
+        <!-- 配置事务管理器 -->
+        <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+            <property name="dataSource" ref="dataSource"/>
+        </bean>
+
+        <!-- 使Controller中可以使用MVC的各种注解。-->
+        <tx:annotation-driven transaction-manager="transactionManager"/>
+
+    2、然后在serviceimpl中加上注解：
+        @Service("productService")
+        @Transactional  //事务控制
+        public class ProductServiceImpl implements ProductService {....}
+
+二、页面展示功能的实现思路流程：
+    1、页面打开的时候，就去了首面：
+       <jsp:forward page="/pages/main.jsp"></jsp:forward>
+    2、product-list1页在哪里发送了请求？
+        在导航栏页面（aside.jsp）中，发送的请求：
+        <li id="system-setting"><a
+            href="${pageContext.request.contextPath}/user/findAll.do"> <i
+                class="fa fa-circle-o"></i> 用户管理
+        </a></li>
+    3、发了请求之后，根据“/product/findAll”找到controller里面的方法
+        @RequestMapping("/product")
+        @RequestMapping("/findAll.do")
+        解释：要加.do的后缀，因为在前端控制器中配置了拦截“*.do”
+    4、执行controller里面的方法：
+        public ModelAndView findAll() throws Exception {
+            ModelAndView mv = new ModelAndView();
+            List<Product> products = productService.findAll();
+            mv.addObject("productList",products);
+            mv.setViewName("product-list1");
+            return mv;
+        }
+        解释：将查询到的结果集封装到ModelAndView中，并指定视图“product-list1”
+    5、执行service、dao里面的方法
+
+三、数据添加功能的实现流程：
+    1、在product-list1中点击新建按钮：发送请求，调用controller里面的方法
+        onclick="location.href='${pageContext.request.contextPath}/pages/product-add.jsp'"
+    2、controller里面执行方法：
+        @RequestMapping("/save.do")
+        public String save(Product product){
+            productService.save(product);
+            return "redirect:findAll.do";
+        }
+    3、特别注意，你添加完毕之后，就需要重新查询一次数据库，再回到product-list1页面，展示最新的数据：
+        return "redirect:findAll.do";
+
+

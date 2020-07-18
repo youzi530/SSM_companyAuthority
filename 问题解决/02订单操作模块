@@ -1,0 +1,152 @@
+一、订单详情的实现：
+    1、首先是在oreder-list.jsp中，点击详情，带有这条记录的id，一个连接操作，发送请求
+        <button type="button" class="btn bg-olive btn-xs" onclick="location.href='${pageContext.request.contextPath}/orders/findById.do?id=${orders.id}'">详情</button>
+    2、到controller中，调用方法findAll()
+    3、到service中，调用方法
+    4、到dao中，根据id查询订单信息，涉及多表操作（涉及订单信息、产品信息、游客信息、会员信息）最关键的地方！！！！！！！
+        a、
+        b、
+        c、
+        d、
+    5、在dao中查询到数据，封装成orders对象，传给service
+    6、service继续传给controller中，跳转到页面order-show.jsp中，展示数据
+
+
+二、订单查询操作实现流程：
+    1、点击订单管理的时候，就发送查询请求（/orders/findAll.do）---需要引入jstl
+        <li id="system-setting">
+            <a href="${pageContext.request.contextPath}/orders/findAll.do">
+                <i class="fa fa-circle-o"></i> 订单管理
+            </a>
+        </li>
+    2、到controller中执行方法：findAll（）
+        @RequestMapping("/findAll.do")
+        public ModelAndView findAll() throws Exception {
+            ModelAndView mv=new ModelAndView();
+            List<Orders> ordersList = ordersService.findAll();
+            mv.addObject("ordersList",ordersList);
+            mv.setViewName("orders-list");
+            return mv;
+        }
+    3、到service就执行dao的方法
+        @Override
+        public List<Orders> findAll() {
+            return ordersDao.findAll();
+        }
+    4、到dao里面的操作细节： 要进行关联查询，获取订单信息和产品信息
+        a、因为我要查询的是订单管理的信息，但是呢！页面中有一些是产品表的数据，这个时候就需要两个表一对一的连接查询：
+                <td>${orders.product.productName }</td>
+                <td>${orders.product.productPrice }</td>
+        b、在orderDao中使用注解的方法来解决，就是使用注解-one = @One()
+            @Select("select * from orders")
+            @Results({
+                    @Result(id = true,property = "id",column = "id"),
+                    @Result(property = "orderNum",column = "orderNum"),
+                    @Result(property = "orderTime",column = "orderTime"),
+                    @Result(property = "orderStatus",column = "orderStatus"),
+                    @Result(property = "peopleCount",column = "peopleCount"),
+                    @Result(property = "payType",column = "payType"),
+                    @Result(property = "payTypeStr",column = "payTypeStr"),
+                    @Result(property = "orderDesc",column = "orderDesc"),
+                    @Result(property = "product",column = "productId",javaType = Product.class,one = @One(select = "com.hm.dao.ProductDao.findById"))
+            })
+            public List<Orders> findAll();
+        c、但在这里，需要注意的是我们通过orders表去查product数据，就需要通过外键id来查数据，所以在product的dao里面写一个findById的方法：
+            //根据id来查询产品信息
+            @Select("select * from  product where id = #{id}")
+            public Product findById(String id);
+        d、然后查询到的数据都封装到了orders对象中
+    5、查询到数据，返回到service里面，封装成List<Oerders>
+    6、继续返回到controller里面，得到List,通过orders关联到产品
+    7、查到数据后，跳转到前端页面，展示数据（orders-list.jsp）
+
+
+三、分页操作的实现流程：
+    1、pageHelper两种方式：
+        ·导入jar包
+        ·使用maven的方式
+    2、使用流程：
+        a、导入maven依赖：
+             <dependency>
+                <groupId>com.github.pagehelper</groupId>
+                <artifactId>pagehelper</artifactId>
+                <version>5.1.2</version>
+             </dependency>
+        b、在配置文件中进行配饰：
+            ·如果没使用是spring的话，适用于mybaits单独使用--不用
+            ·spring管理使用方式：在application.xml中进行配置：
+                <!-- 把交给IOC管理 SqlSessionFactory -->
+                <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+                    <property name="dataSource" ref="dataSource" />
+                    <!-- 传入PageHelper的插件 -->
+                    <property name="plugins">
+                        <array>
+                            <!-- 传入插件的对象 -->
+                            <bean class="com.github.pagehelper.PageInterceptor">
+                                <property name="properties">
+                                    <props>
+                                        <prop key="helperDialect">oracle</prop>
+                                        <prop key="reasonable">true</prop>
+                                    </props>
+                                </property>
+                            </bean>
+                        </array>
+                    </property>
+                </bean>
+        c、helperDialect、reasonable(不会超出边界，第一页无上一页)具体意思可以去看文档！
+        d、在执行service方法里面的sql方法前添加下面这一行，并且必须是前面一个，不能是前面几个！！
+            PageHelper.startPage(1,5); //参数pageNum是页码值，pageSize就是每页显示条数
+            eturn ordersDao.findAll();
+    3、在前端页面的时候，比如点击订单管理的时候，就要去执行分页，在aside.jsp里面：?page=1&pageSize=3   ===》 代表的是显示第一页，每一页大小为3
+        <li id="system-setting">
+            <a href="${pageContext.request.contextPath}/orders/findAll.do?page=1&pageSize=3">
+                <i class="fa fa-circle-o"></i> 订单管理
+            </a>
+        </li>
+    4、到达controller里面需要进行大改：
+        //查询全部的订单，分页！！！！
+        @RequestMapping("/findAll.do")
+        public ModelAndView findAll(@RequestParam(name = "page",required = true,defaultValue = "1")int page,
+                                    @RequestParam(name = "size",required = true,defaultValue = "4")int size) throws Exception {
+            ModelAndView mv=new ModelAndView();
+            List<Orders> ordersList = ordersService.findAll(page,size);
+
+            //PageInfo就是一个分页的bean,就是一个容器，把查询到数据list放到这个容器中
+            PageInfo pageInfo = new PageInfo(ordersList);
+            mv.addObject("pageInfo",pageInfo);
+            mv.setViewName("orders-page-list");
+            return mv;
+        }
+    5、那相对应的service也要修改：
+        a、在service：
+            List<Orders> findAll(int page,int size) throws Exception;
+        b、在serviceImpl：
+            @Override
+            public List<Orders> findAll(int page,int size) {
+                PageHelper.startPage(page,size); //参数pageNum是页码值，pageSize就是每页显示条数
+                return ordersDao.findAll();
+            }
+    6、在orders-page-list里面遍历数据的时候改，原因如下:
+       PageInfo就是一个分页的bean,就是一个容器，把查询到数据list放到这个容器中
+         <c:forEach items="${pageInfo.list}" var="orders">
+    7、到目前还只是实现第一页的数据展示：我需要第二页也可以用：
+    8、在orders-page-list里面：
+        <div class="box-tools pull-right">
+            <ul class="pagination">
+                <li>
+                    <a href="${pageContext.request.contextPath}/orders/findAll.do?page=1&size=${pageInfo.pageSize}" aria-label="Previous">首页</a>
+                </li>
+                <li><a href="${pageContext.request.contextPath}/orders/findAll.do?page=${pageInfo.pageNum-1}&size=${pageInfo.pageSize}">上一页</a></li>
+                    <c:forEach begin="1" end="${pageInfo.pages}" var="pageNum">
+                        <li><a href="${pageContext.request.contextPath}/orders/findAll.do?page=${pageNum}&size=${pageInfo.pageSize}">${pageNum}</a></li>
+                    </c:forEach>
+
+                <li><a href="${pageContext.request.contextPath}/orders/findAll.do?page=${pageInfo.pageNum+1}&size=${pageInfo.pageSize}">下一页</a></li>
+                <li>
+                    <a href="${pageContext.request.contextPath}/orders/findAll.do?page=${pageInfo.pages}&size=${pageInfo.pageSize}" aria-label="Next">尾页</a>
+                </li>
+            </ul>
+        </div>
+
+
+

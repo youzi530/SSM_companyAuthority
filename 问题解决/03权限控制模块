@@ -1,0 +1,80 @@
+·使用数据库完成springSecurity的做法
+        1、配置：
+            a、maven导入依赖：
+                <dependency>
+                    <groupId>org.springframework.security</groupId>
+                    <artifactId>spring-security-web</artifactId>
+                    <version>${spring.security.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.springframework.security</groupId>
+                    <artifactId>spring-security-config</artifactId>
+                    <version>${spring.security.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.springframework.security</groupId>
+                    <artifactId>spring-security-core</artifactId>
+                    <version>${spring.security.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.springframework.security</groupId>
+                    <artifactId>spring-security-taglibs</artifactId>
+                    <version>${spring.security.version}</version>
+                </dependency>
+            b、在web.xml中进行配置：
+                ·第一个：加拦截器
+                    <!--使用数据库完成springSecurity-->
+                     <filter>
+                        <filter-name>springSecurityFilterChain</filter-name>
+                        <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
+                     </filter>
+                     <filter-mapping>
+                        <filter-name>springSecurityFilterChain</filter-name>
+                        <url-pattern>/*</url-pattern>
+                     </filter-mapping>
+                ·第二个：配置加载类路径的配置文件
+                     <!-- 配置加载类路径的配置文件 -->
+                     <context-param>
+                        <param-name>contextConfigLocation</param-name>
+                        <param-value>classpath*:applicationContext.xml,classpath*:spring-security.xml</param-value>
+                     </context-param>
+            c、新建spring-security.xml文件:(详情请看配置文件)
+
+        2、登录页面（login.jsp）：提交表单,登录成功跳转main.jsp,登录失败了跳转failer.jsp：
+            <!-- 定义跳转的具体的页面 -->
+            <security:form-login
+                    login-page="/login.jsp"
+                    login-processing-url="/login.do"
+                    default-target-url="/index.jsp"
+                    authentication-failure-url="/failer.jsp"
+                    authentication-success-forward-url="/pages/main.jsp"
+            />
+        3、springSecurity框架来代替controller：（在spring-security.xml写配置）：
+            配置不拦截的资源、定义跳转的具体的页面、切换成数据库中的用户名和密码、配置加密类等操作配置
+
+            userDetails和我们的用户对象有什么关系？
+
+        4、在service中，实现UserDetailsService接口，调用dao完成认证操作，根据username、password判断：
+            a、书写UserService，继承UserDetailsService：
+            b、书写UserServiceImpl，实现UserService：
+               在配置文件中引用了userService：
+                    <!-- 切换成数据库中的用户名和密码 -->
+                    <security:authentication-manager>
+                        <security:authentication-provider user-service-ref="userService">
+                            <!-- 配置加密的方式 -->
+                            <security:password-encoder ref="passwordEncoder"/>
+                        </security:authentication-provider>
+                    </security:authentication-manager>
+        5、在dao中执行sql语句操作：
+            @Select("select * from users where username = #{username}")
+            @Results({
+                    @Result(id = true,property = "id",column = "id"),
+                    @Result(property = "username",column = "username"),
+                    @Result(property = "email",column = "email"),
+                    @Result(property = "password",column = "password"),
+                    @Result(property = "phoneNum",column = "phoneNum"),
+                    @Result(property = "status",column = "status"),
+                    @Result(property = "roles",column = "id",javaType = java.util.List.class,many = @Many(select = "com.hm.dao.RoleDao.findByUserId")),
+            })
+            public UserInfo findByUsername(String username);
+        6、完善项目：

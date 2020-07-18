@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="hm_ssm_web" />
+        <module name="hm_ssm_utils" />
+        <module name="hm_ssm_dao" />
+        <module name="hm_springSecurityDemo" />
+        <module name="hm_ssm_service" />
+        <module name="hm_ssm_domain" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="hm_ssm_urils" target="1.8" />
+    </bytecodeTargetLevel>
+  </component>
+</project>

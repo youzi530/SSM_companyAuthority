@@ -1,0 +1,175 @@
+一、入门DEMO：
+
+    第一步：导入依赖
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-web</artifactId>
+            <version>${spring.security.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-config</artifactId>
+            <version>${spring.security.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>3.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+    第二步：web.xml里面写配置
+         <context-param>
+            <param-name>contextConfigLocation</param-name>
+            <param-value>classpath:spring-security.xml</param-value>
+          </context-param>
+          <listener>
+            <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+          </listener>
+          <filter>
+            <filter-name>springSecurityFilterChain</filter-name>
+            <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
+          </filter>
+          <filter-mapping>
+            <filter-name>springSecurityFilterChain</filter-name>
+            <url-pattern>/*</url-pattern>
+          </filter-mapping>
+          <welcome-file-list>
+            <welcome-file>index.html</welcome-file>
+            <welcome-file>index.htm</welcome-file>
+            <welcome-file>index.jsp</welcome-file>
+            <welcome-file>default.html</welcome-file>
+            <welcome-file>default.htm</welcome-file>
+            <welcome-file>default.jsp</welcome-file>
+          </welcome-file-list>
+
+    第三步：spring-security.xml写配置
+        <security:http auto-config="true" use-expressions="false">
+            <!-- intercept-url定义一个过滤规则 pattern表示对哪些url进行权限控制，ccess属性表示在请求对应 的URL时需要什么权限，
+                    默认配置时它应该是一个以逗号分隔的角色列表，请求的用户只需拥有其中的一个角色就能成功访问对应 的URL -->
+            <security:intercept-url pattern="/**" access="ROLE_USER"/>
+            <!-- auto-config配置后，不需要在配置下面信息
+            <security:form-login /> 定义登录表单信息
+            <security:http-basic/> <security:logout /> -->
+        </security:http>
+        <security:authentication-manager>
+            <security:authentication-provider>
+                <security:user-service>
+                    <security:user name="user" password="{noop}user" authorities="ROLE_USER"/>
+                    <security:user name="admin" password="{noop}admin" authorities="ROLE_ADMIN"/>
+                </security:user-service>
+            </security:authentication-provider>
+        </security:authentication-manager>
+
+
+二、使用指定页面的权限认证：自定义页面的
+    1、加入自己写的页面：login、success、failer
+    2、spring-security.xml修改配置：
+        <!-- 配置不过滤的资源（静态资源及登录相关） -->
+        <security:http security="none" pattern="/login.html" />
+        <security:http security="none" pattern="/failer.html" />
+        <security:http auto-config="true" use-expressions="false" >
+            <!-- 配置资料连接，表示任意路径都需要ROLE_USER权限 -->
+            <security:intercept-url pattern="/**" access="ROLE_USER" />
+            <!-- 自定义登陆页面，login-page 自定义登陆页面 authentication-failure-url 用户权限校验失败之后才会跳转到这个页面，如果数据库中没有这个用户则不会跳转到这个页面。
+                default-target-url 登陆成功后跳转的页面。 注：登陆页面用户名固定 username，密码 password，action:login -->
+            <security:form-login login-page="/login.html"
+                                 login-processing-url="/login" username-parameter="username"
+                                 password-parameter="password" authentication-failure-url="/failer.html"
+                                 default-target-url="/success.html" authentication-success-forward-url="/success.html"
+            />
+            <!-- 登出， invalidate-session 是否删除session logout-url：登出处理链接 logout-success-url：登出成功页面
+                注：登出操作 只需要链接到 logout即可登出当前用户 -->
+            <security:logout invalidate-session="true" logout-url="/logout"
+                             logout-success-url="/login.jsp" />
+            <!-- 关闭CSRF,默认是开启的 -->
+            <security:csrf disabled="true" />
+        </security:http>
+        <security:authentication-manager>
+            <security:authentication-provider>
+                <security:user-service>
+                    <security:user name="user" password="{noop}user"
+                                   authorities="ROLE_USER" />
+                    <security:user name="admin" password="{noop}admin"
+                                   authorities="ROLE_ADMIN" />
+                </security:user-service>
+            </security:authentication-provider>
+        </security:authentication-manager>
+
+
+二、实际操作：
+
+    ·原始做法：
+        1、登录页面：提交表单，发送请求到controller
+        2、在controller中，获取username、password提交到service判断是否正确
+        3、在service中，调用dao完成认证操作，根据username、password判断
+        4、在dao中执行sql语句。返回user对象
+
+    ·使用数据库完成springSecurity的做法
+        1、配置：
+            a、maven导入依赖：
+                <dependency>
+                    <groupId>org.springframework.security</groupId>
+                    <artifactId>spring-security-web</artifactId>
+                    <version>${spring.security.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.springframework.security</groupId>
+                    <artifactId>spring-security-config</artifactId>
+                    <version>${spring.security.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.springframework.security</groupId>
+                    <artifactId>spring-security-core</artifactId>
+                    <version>${spring.security.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.springframework.security</groupId>
+                    <artifactId>spring-security-taglibs</artifactId>
+                    <version>${spring.security.version}</version>
+                </dependency>
+            b、在web.xml中进行配置：
+                ·第一个：加拦截器
+                    <!--使用数据库完成springSecurity-->
+                     <filter>
+                        <filter-name>springSecurityFilterChain</filter-name>
+                        <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
+                     </filter>
+                     <filter-mapping>
+                        <filter-name>springSecurityFilterChain</filter-name>
+                        <url-pattern>/*</url-pattern>
+                     </filter-mapping>
+                ·第二个：配置加载类路径的配置文件
+                     <!-- 配置加载类路径的配置文件 -->
+                     <context-param>
+                        <param-name>contextConfigLocation</param-name>
+                        <param-value>classpath*:applicationContext.xml,classpath*:spring-security.xml</param-value>
+                     </context-param>
+            c、新建spring-security.xml文件:(详情请看配置文件)
+
+        2、登录页面（login.jsp）：提交表单,登录成功跳转main.jsp,登录失败了跳转failer.jsp：
+            <!-- 定义跳转的具体的页面 -->
+            <security:form-login
+                    login-page="/login.jsp"
+                    login-processing-url="/login.do"
+                    default-target-url="/index.jsp"
+                    authentication-failure-url="/failer.jsp"
+                    authentication-success-forward-url="/pages/main.jsp"
+            />
+        3、springSecurity框架来代替controller：（在spring-security.xml写配置）：
+            配置不拦截的资源、定义跳转的具体的页面、切换成数据库中的用户名和密码、配置加密类等操作配置
+
+            userDetails和我们的用户对象有什么关系？
+
+        4、在service中，实现UserDetailsService接口，调用dao完成认证操作，根据username、password判断：
+            a、书写UserService，继承UserDetailsService：
+            b、书写UserServiceImpl，实现UserService：
+               在配置文件中引用了userService：
+                    <!-- 切换成数据库中的用户名和密码 -->
+                    <security:authentication-manager>
+                        <security:authentication-provider user-service-ref="userService">
+                            <!-- 配置加密的方式 -->
+                            <security:password-encoder ref="passwordEncoder"/>
+                        </security:authentication-provider>
+                    </security:authentication-manager>
+        5、在dao中执行sql语句操作：
